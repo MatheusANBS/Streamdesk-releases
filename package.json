@@ -1,0 +1,17 @@
+{
+  "name": "streamdesk-releases",
+  "version": "2.1.0",
+  "description": "Script de automação para criar releases do StreamDesk",
+  "main": "release.js",
+  "scripts": {
+    "release": "node release.js",
+    "check": "node check-files.js"
+  },
+  "keywords": [
+    "streamdesk",
+    "release",
+    "automation"
+  ],
+  "author": "MatheusANBS",
+  "license": "MIT"
+}
