@@ -3,7 +3,7 @@ const path = require('path');
 const { execSync } = require('child_process');
 
 // ============= CONFIGURAÇÃO =============
-const desktopVersion = '2.1.0';
+const desktopVersion = '2.1.2';
 const mobileVersion = '1.0.0';
 const repoOwner = 'MatheusANBS';
 const repoName = 'Streamdesk-releases';
@@ -49,15 +49,25 @@ if (fs.existsSync(desktopDistPath)) {
 
 if (setupFound) {
   const desktopSource = path.join(desktopDistPath, setupFound);
-  const desktopDest = path.join(releasesDir, 'StreamDesk-Setup.exe');
-  const desktopSiteDest = path.join(siteDownloadsDir, 'StreamDesk-Setup.exe');
+  // Manter o nome original do arquivo (com versão)
+  const setupFileName = setupFound; // Ex: StreamDesk Setup 2.1.2.exe
+  const desktopDest = path.join(releasesDir, setupFileName);
 
   fs.copyFileSync(desktopSource, desktopDest);
-  fs.copyFileSync(desktopSource, desktopSiteDest);
   const stats = fs.statSync(desktopDest);
-  console.log(`✅ Desktop: StreamDesk-Setup.exe (${(stats.size / 1024 / 1024).toFixed(2)} MB)`);
-  console.log(`   → releases/StreamDesk-Setup.exe`);
-  console.log(`   → Site/public/downloads/StreamDesk-Setup.exe`);
+  console.log(`✅ Desktop: ${setupFileName} (${(stats.size / 1024 / 1024).toFixed(2)} MB)`);
+  console.log(`   → releases/${setupFileName}`);
+
+  // Copiar latest.yml para auto-update
+  const latestYmlSource = path.join(desktopDistPath, 'latest.yml');
+  if (fs.existsSync(latestYmlSource)) {
+    const latestYmlDest = path.join(releasesDir, 'latest.yml');
+    fs.copyFileSync(latestYmlSource, latestYmlDest);
+    console.log(`✅ Auto-update: latest.yml`);
+    console.log(`   → releases/latest.yml`);
+  } else {
+    console.log('⚠️  latest.yml não encontrado (necessário para auto-update)');
+  }
 } else {
   console.log('⚠️  Setup.exe não encontrado em:', desktopDistPath);
   console.log('   Execute: cd ../STREAMDESK/electron-server && npm run build');
@@ -75,27 +85,25 @@ if (fs.existsSync(releaseFolder)) {
 if (apkFound) {
   const mobileSource = path.join(releaseFolder, apkFound);
   const mobileDest = path.join(releasesDir, 'StreamDesk.apk');
-  const mobileSiteDest = path.join(siteDownloadsDir, 'StreamDesk.apk');
   
   fs.copyFileSync(mobileSource, mobileDest);
-  fs.copyFileSync(mobileSource, mobileSiteDest);
   
   const stats = fs.statSync(mobileDest);
   console.log(`✅ Mobile: StreamDesk.apk (${(stats.size / 1024 / 1024).toFixed(2)} MB)`);
   console.log(`   → releases/StreamDesk.apk`);
-  console.log(`   → Site/public/downloads/StreamDesk.apk`);
 } else {
   console.log('⚠️  APK não encontrado em:', releaseFolder);
   console.log('   Execute: cd ../STREAMDESK/streamdeck-mobile && npx expo run:android --variant release');
 }
 
 // 3. Criar version.json
+const setupFileName = setupFound || 'StreamDesk-Setup.exe';
 const versionInfo = {
   desktop: {
     version: desktopVersion,
-    url: `https://github.com/${repoOwner}/${repoName}/releases/download/v${desktopVersion}/StreamDesk-Setup.exe`,
-    size: setupFound && fs.existsSync(path.join(releasesDir, 'StreamDesk-Setup.exe')) 
-      ? fs.statSync(path.join(releasesDir, 'StreamDesk-Setup.exe')).size 
+    url: `https://github.com/${repoOwner}/${repoName}/releases/download/v${desktopVersion}/${encodeURIComponent(setupFileName)}`,
+    size: setupFound && fs.existsSync(path.join(releasesDir, setupFileName)) 
+      ? fs.statSync(path.join(releasesDir, setupFileName)).size 
       : 0,
     releaseDate: new Date().toISOString()
   },
@@ -109,18 +117,17 @@ const versionInfo = {
   }
 };
 
-const versionPath = path.join(releasesDir, 'version.json');
 const versionSitePath = path.join(siteDownloadsDir, 'version.json');
-fs.writeFileSync(versionPath, JSON.stringify(versionInfo, null, 2));
 fs.writeFileSync(versionSitePath, JSON.stringify(versionInfo, null, 2));
 console.log('✅ version.json criado');
-console.log('   → releases/version.json');
 console.log('   → Site/public/downloads/version.json');
 
 console.log('\n📁 Arquivos prontos em: releases/');
-if (setupFound) console.log('   ✓ StreamDesk-Setup.exe');
+if (setupFound) console.log(`   ✓ ${setupFileName}`);
 if (apkFound) console.log('   ✓ StreamDesk.apk');
-console.log('   ✓ version.json');
+if (fs.existsSync(path.join(releasesDir, 'latest.yml'))) console.log('   ✓ latest.yml');
+console.log('\n📁 Arquivo criado no site:');
+console.log('   ✓ Site/public/downloads/version.json');
 
 if (!setupFound || !apkFound) {
   console.log('\n⚠️  Alguns arquivos não foram encontrados. Corrija antes de criar a release.');
@@ -166,8 +173,9 @@ try {
   }
 
   // Cria a release
-  const setupFile = path.join(releasesDir, 'StreamDesk-Setup.exe');
+  const setupFile = path.join(releasesDir, setupFileName);
   const apkFile = path.join(releasesDir, 'StreamDesk.apk');
+  const latestYmlFile = path.join(releasesDir, 'latest.yml');
   
   const releaseNotes = `## 🎉 StreamDesk ${desktopVersion}
 
@@ -182,15 +190,21 @@ try {
 - 🔄 Sincronização automática de perfis
 
 ### 📥 Downloads
-- **Windows**: StreamDesk-Setup.exe
+- **Windows**: ${setupFileName}
 - **Android**: StreamDesk.apk`;
 
   // Salvar release notes em arquivo temporário para evitar problemas com aspas
   const notesFile = path.join(releasesDir, 'release-notes.md');
   fs.writeFileSync(notesFile, releaseNotes);
 
+  // Preparar lista de arquivos para upload
+  let filesToUpload = `"${setupFile}" "${apkFile}"`;
+  if (fs.existsSync(latestYmlFile)) {
+    filesToUpload += ` "${latestYmlFile}"`;
+  }
+
   // Cria release com os arquivos
-  const createCmd = `gh release create "${tag}" "${setupFile}" "${apkFile}" --title "${releaseTitle}" --notes-file "${notesFile}" -R ${repoOwner}/${repoName}`;
+  const createCmd = `gh release create "${tag}" ${filesToUpload} --title "${releaseTitle}" --notes-file "${notesFile}" -R ${repoOwner}/${repoName}`;
   execSync(createCmd, {
     stdio: 'inherit'
   });
@@ -208,5 +222,5 @@ try {
   console.error('   Detalhes:', error.message);
   console.log(`   Faça upload manual: https://github.com/${repoOwner}/${repoName}/releases/new`);
   console.log(`   Tag: v${desktopVersion}`);
-  console.log('   Arquivos: releases/StreamDesk-Setup.exe e releases/StreamDesk.apk');
+  console.log(`   Arquivos: releases/${setupFileName} e releases/StreamDesk.apk`);
 }
