@@ -3,8 +3,6 @@ const path = require('path');
 const { execSync } = require('child_process');
 
 // ============= CONFIGURAÇÃO =============
-const desktopVersion = '2.1.2';
-const mobileVersion = '1.0.0';
 const repoOwner = 'MatheusANBS';
 const repoName = 'Streamdesk-releases';
 
@@ -12,8 +10,61 @@ const repoName = 'Streamdesk-releases';
 const streamdeskPath = path.join(__dirname, '..', 'STREAMDESK');
 // ========================================
 
+// Função para ler o CHANGELOG e extrair a versão e notas mais recentes
+function parseChangelog() {
+  const changelogPath = path.join(__dirname, 'CHANGELOG.md');
+  
+  if (!fs.existsSync(changelogPath)) {
+    console.error('❌ CHANGELOG.md não encontrado!');
+    process.exit(1);
+  }
+
+  const content = fs.readFileSync(changelogPath, 'utf8');
+  const lines = content.split('\n');
+  
+  // Extrair versão e data do primeiro release
+  const versionMatch = content.match(/##\s+v?([\d.]+)\s+\((\d{4}-\d{2}-\d{2})\)/);
+  if (!versionMatch) {
+    console.error('❌ Formato de versão não encontrado no CHANGELOG.md');
+    console.error('   Formato esperado: ## v2.1.4 (2025-11-11)');
+    process.exit(1);
+  }
+
+  const version = versionMatch[1];
+  const releaseDate = versionMatch[2];
+  
+  // Extrair notas do release (do primeiro ## até o próximo ## ou fim do arquivo)
+  let startIndex = -1;
+  let endIndex = content.length;
+  
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].match(/##\s+v?[\d.]+\s+\(/)) {
+      if (startIndex === -1) {
+        startIndex = i;
+      } else {
+        endIndex = lines.slice(0, i).join('\n').length;
+        break;
+      }
+    }
+  }
+  
+  const releaseNotes = content
+    .substring(content.indexOf(lines[startIndex]), endIndex)
+    .trim();
+  
+  return {
+    version,
+    releaseDate,
+    releaseNotes
+  };
+}
+
+const { version: desktopVersion, releaseDate, releaseNotes } = parseChangelog();
+const mobileVersion = desktopVersion; // Mesma versão para ambos
+
 console.log('📦 Preparando release do StreamDesk...\n');
-console.log(`📂 Pasta STREAMDESK: ${streamdeskPath}\n`);
+console.log(`📋 Versão: v${desktopVersion} (${releaseDate})`);
+console.log(`📥 Pasta STREAMDESK: ${streamdeskPath}\n`);
 
 // Verificar se a pasta STREAMDESK existe
 if (!fs.existsSync(streamdeskPath)) {
@@ -177,25 +228,18 @@ try {
   const apkFile = path.join(releasesDir, 'StreamDesk.apk');
   const latestYmlFile = path.join(releasesDir, 'latest.yml');
   
-  const releaseNotes = `## 🎉 StreamDesk ${desktopVersion}
+  // Formatar release notes do CHANGELOG para o GitHub (adicionar links de download)
+  const formattedNotes = `${releaseNotes}
 
-### 🖥️ Desktop (v${desktopVersion})
-- 🎨 Aplicar Estilo a Todos os botões
-- 🔄 Sincronização de perfis entre desktop e mobile
-- 🔍 Busca online mostra nome do aplicativo
-- 🌐 Suporte para APIs externas (Steam)
-
-### 📱 Mobile (v${mobileVersion})
-- 🎯 Transparência funciona com ação "none"
-- 🔄 Sincronização automática de perfis
+---
 
 ### 📥 Downloads
-- **Windows**: ${setupFileName}
-- **Android**: StreamDesk.apk`;
+- **Windows**: [${setupFileName}](https://github.com/${repoOwner}/${repoName}/releases/download/v${desktopVersion}/${encodeURIComponent(setupFileName)})
+- **Android**: [StreamDesk.apk](https://github.com/${repoOwner}/${repoName}/releases/download/v${desktopVersion}/StreamDesk.apk)`;
 
   // Salvar release notes em arquivo temporário para evitar problemas com aspas
   const notesFile = path.join(releasesDir, 'release-notes.md');
-  fs.writeFileSync(notesFile, releaseNotes);
+  fs.writeFileSync(notesFile, formattedNotes);
 
   // Preparar lista de arquivos para upload
   let filesToUpload = `"${setupFile}" "${apkFile}"`;
