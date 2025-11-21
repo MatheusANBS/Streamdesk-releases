@@ -1,46 +1,32 @@
 # Changelog - StreamDesk
 
-## v2.1.7 (2025-11-19)
+## v2.1.8 (2025-11-21)
 
 ### 🚀 Performance Improvements
 
-#### TypeText Optimization (Instant typing)
-- **Clipboard-only Method**:
-  - Removed SendInput fallback attempts (always failed due to UIPI)
-  - Direct clipboard + Ctrl+V approach (99.9% compatibility)
-  - Clipboard delay: 100ms → **10ms** (10x faster)
-  - Code simplified: ~150 lines → **~35 lines**
-  
+#### Profile Switching Optimization (87-91% faster on mobile)
+- **Source-Aware IPC Optimization**:
+  - Added `source` parameter tracking ('desktop' | 'mobile')
+  - Mobile-initiated switches skip desktop IPC send
+  - Workspace profile: 16-17ms → **2.0-2.6ms** (87% faster)
+  - Minhas musicas profile: 24-25ms → **2.1-2.3ms** (91% faster)
+  - Consistent 2ms response time across all profiles
+
 - **Technical Changes**:
-  - Eliminated Windows SendInput API structures
-  - Pure SendKeys.SendWait() implementation
-  - Removed unnecessary delay loops
-  - Instant text paste via clipboard
+  - `CommandExecutor.execute()` now accepts `source` parameter
+  - WebSocket commands tagged as `source='mobile'`
+  - Desktop IPC commands tagged as `source='desktop'`
+  - Conditional `mainWindow.webContents.send()` based on source
+  - Profile loading callback checks source before IPC
 
-### ✨ New Features
+- **Architecture**:
+  - Mobile → WebSocket → `execute(action, 'mobile')` → skips desktop IPC
+  - Desktop → IPC → `onLoadProfile(profile, 'desktop')` → skips desktop IPC
+  - Button action → `execute(action, 'desktop')` → broadcasts to all
 
-#### Multiline Text Support
-- **Resizable Text Areas**: `<input>` → `<textarea>` with vertical resize
-- **Line Breaks**: Full support for Enter key in text fields
-- **Meme Creation**: Easily create multiline ASCII art and formatted text
-- **Visual Feedback**: 
-  - Main field: 6 visible lines
-  - Multi-action field: 3 visible lines
-
-### 🔧 Bug Fixes
-- **Timeout Resolution**: Fixed "TypeText timeout - killing process" appearing after successful completion
-  - Added `hasExited` flag and `clearTimeout()` on process exit
-  - Timeout reduced: 30s → 10s
-- **Enter Key Fixed**: "Press Enter after typing" now uses SendKeys instead of SendInput (100% reliable)
-
-### 🎨 Interface Improvements
-- **Expandable Text Boxes**: Drag to resize vertically
-- **Better Typography**: Line-height 1.5 for readability
-- **Segoe UI Font**: Consistent with Windows system font
-
-### 💡 Unicode Support
-- **Full Unicode via Clipboard**: Braille characters (⠀⠇⠴⠸), emojis, special symbols
-- **ASCII Art Compatible**: Supports complex character art
-- **International Characters**: All languages and accents preserved
+### ✨ UI Improvements
+- **Event Delegation**: Button grid listeners reduced from 90 → 7
+- **DocumentFragment Batching**: DOM reflows reduced from 15 → 1
+- **Lucide Icon Debounce**: 50ms debounce on 23 icon re-renders
 
 ---
