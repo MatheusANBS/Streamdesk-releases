@@ -1,32 +1,20 @@
 # Changelog - StreamDesk
 
-## v2.1.8 (2025-11-21)
+## v2.1.9 (2025-11-30)
 
-### 🚀 Performance Improvements
+### 🐛 Bug Fixes
 
-#### Profile Switching Optimization (87-91% faster on mobile)
-- **Source-Aware IPC Optimization**:
-  - Added `source` parameter tracking ('desktop' | 'mobile')
-  - Mobile-initiated switches skip desktop IPC send
-  - Workspace profile: 16-17ms → **2.0-2.6ms** (87% faster)
-  - Minhas musicas profile: 24-25ms → **2.1-2.3ms** (91% faster)
-  - Consistent 2ms response time across all profiles
+#### Drag & Drop Fix
+- **Fixed buttons becoming unclickable after repositioning**:
+  - `isDragging` flag was not being reset after drag & drop
+  - When grid was re-rendered, `dragend` event fired on destroyed element
+  - Added `isDragging = false` reset directly in `handleDrop()` function
+  - Buttons are now immediately clickable after repositioning
 
-- **Technical Changes**:
-  - `CommandExecutor.execute()` now accepts `source` parameter
-  - WebSocket commands tagged as `source='mobile'`
-  - Desktop IPC commands tagged as `source='desktop'`
-  - Conditional `mainWindow.webContents.send()` based on source
-  - Profile loading callback checks source before IPC
-
-- **Architecture**:
-  - Mobile → WebSocket → `execute(action, 'mobile')` → skips desktop IPC
-  - Desktop → IPC → `onLoadProfile(profile, 'desktop')` → skips desktop IPC
-  - Button action → `execute(action, 'desktop')` → broadcasts to all
-
-### ✨ UI Improvements
-- **Event Delegation**: Button grid listeners reduced from 90 → 7
-- **DocumentFragment Batching**: DOM reflows reduced from 15 → 1
-- **Lucide Icon Debounce**: 50ms debounce on 23 icon re-renders
+#### Lucide Icons Fix
+- **Fixed infinite recursion in `initLucideIcons()`**:
+  - Function was calling itself instead of `lucide.createIcons()`
+  - This caused UI freezing after saving button configurations
+  - Icons now render correctly with proper debounce
 
 ---
